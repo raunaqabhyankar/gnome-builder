@@ -115,7 +115,7 @@ gb_source_code_assistant_completion_cb (GObject      *object,
                                         GAsyncResult *result,
                                         gpointer      user_data)
 {
-  GbSourceCodeAssistant *self = (GbSourceCodeAssistant *)object;
+  GbSourceCodeAssistant *self = user_data;
   GcaCompletion *proxy;
   GError *error = NULL;
 
@@ -486,11 +486,80 @@ gb_source_code_assistant_get_options (GbSourceCodeAssistant *assistant)
   return options;
 }
 
+static gchar *
+gb_source_code_assistant_get_path (GbSourceCodeAssistant *assistant)
+{
+  GtkSourceFile *file;
+  GFile *location;
+
+  g_return_val_if_fail (GB_IS_SOURCE_CODE_ASSISTANT (assistant), NULL);
+
+  file = gb_editor_document_get_file (GB_EDITOR_DOCUMENT (assistant->priv->buffer));
+  location = gtk_source_file_get_location (file);
+
+  return g_file_get_path (location);
+}
+
+const gchar *
+gb_source_code_assistant_get_tmpfile (GbSourceCodeAssistant *assistant)
+{
+  GbSourceCodeAssistantPrivate *priv;
+
+  ENTRY;
+
+  g_return_val_if_fail (GB_IS_SOURCE_CODE_ASSISTANT (assistant), NULL);
+
+  priv = assistant->priv;
+
+  if (!priv->tmpfile_path)
+    {
+      GtkSourceFile *source_file;
+      GError *error = NULL;
+      GFile *location;
+      gchar *path;
+      const gchar *suffix;
+      gchar *template;
+      int fd;
+
+      source_file = gb_editor_document_get_file (GB_EDITOR_DOCUMENT (priv->buffer));
+      location = gtk_source_file_get_location (source_file);
+      if (!location)
+        RETURN (NULL);
+
+      path = g_file_get_path (location);
+
+      /*
+       * Generate a template filename that has still has the same suffix as
+       * the original filename. Some code-assistance backends will use this
+       * to modify how they are parsed.
+       */
+      suffix = strrchr (path, '.');
+      if (!suffix)
+        suffix = "";
+      template = g_strdup_printf ("builder-code-assistant-XXXXXX%s", suffix);
+      g_free (path);
+      fd = g_file_open_tmp (template,  &priv->tmpfile_path, &error);
+      g_free (template);
+
+      if (fd == -1)
+        {
+          g_warning ("%s", error->message);
+          g_clear_error (&error);
+          RETURN (NULL);
+        }
+
+      priv->tmpfile_fd = fd;
+    }
+
+  RETURN (priv->tmpfile_path);
+}
+
 static gboolean
 gb_source_code_assistant_do_parse (gpointer data)
 {
   GbSourceCodeAssistantPrivate *priv;
   GbSourceCodeAssistant *assistant = data;
+  const gchar *tmpfile;
   GError *error = NULL;
   GtkTextMark *insert;
   GtkTextIter iter;
@@ -498,7 +567,6 @@ gb_source_code_assistant_do_parse (gpointer data)
   GtkTextIter end;
   GVariant *cursor;
   GVariant *options;
-  GFile *gfile = NULL;
   gchar *path = NULL;
   gchar *text = NULL;
   gint64 line;
@@ -522,51 +590,12 @@ gb_source_code_assistant_do_parse (gpointer data)
   cursor = g_variant_new ("(xx)", line, line_offset);
   options = gb_source_code_assistant_get_options (assistant);
 
-  if (GB_IS_EDITOR_DOCUMENT (priv->buffer))
-    {
-      GtkSourceFile *file;
-
-      file = gb_editor_document_get_file (GB_EDITOR_DOCUMENT (priv->buffer));
-      if (file)
-        gfile = gtk_source_file_get_location (file);
-    }
-
-  if (gfile)
-    path = g_file_get_path (gfile);
+  path = gb_source_code_assistant_get_path (assistant);
 
   if (gb_str_empty0 (path))
     RETURN (G_SOURCE_REMOVE);
 
-  if (!priv->tmpfile_path)
-    {
-      const gchar *suffix;
-      gchar *template;
-      int fd;
-
-      /*
-       * Generate a template filename that has still has the same suffix as
-       * the original filename. Some code-assistance backends will use this
-       * to modify how they are parsed.
-       */
-      suffix = strrchr (path, '.');
-      if (!suffix)
-        suffix = "";
-      template = g_strdup_printf ("builder-code-assistant-XXXXXX%s",
-                                  suffix);
-
-      fd = g_file_open_tmp (template,  &priv->tmpfile_path, &error);
-
-      g_free (template);
-
-      if (fd == -1)
-        {
-          g_warning ("%s", error->message);
-          g_clear_error (&error);
-          GOTO (failure);
-        }
-
-      priv->tmpfile_fd = fd;
-    }
+  tmpfile = gb_source_code_assistant_get_tmpfile (assistant);
 
   gtk_text_buffer_get_bounds (priv->buffer, &begin, &end);
   text = gtk_text_buffer_get_text (priv->buffer, &begin, &end, TRUE);
@@ -580,7 +609,7 @@ gb_source_code_assistant_do_parse (gpointer data)
   gb_source_code_assistant_inc_active (assistant, 1);
   gca_service_call_parse (priv->service,
                           path,
-                          priv->tmpfile_path,
+                          tmpfile,
                           cursor,
                           options,
                           priv->cancellable,
@@ -606,6 +635,127 @@ gb_source_code_assistant_queue_parse (GbSourceCodeAssistant *assistant)
     g_timeout_add (PARSE_TIMEOUT_MSEC,
                    gb_source_code_assistant_do_parse,
                    assistant);
+}
+
+static void
+gb_source_code_assistant_complete_cb (GObject      *source_object,
+                                      GAsyncResult *result,
+                                      gpointer      user_data)
+{
+  GcaCompletion *completion = (GcaCompletion *)source_object;
+  GVariant *variant = NULL;
+  GError *error = NULL;
+  GTask *task = user_data;
+
+  ENTRY;
+
+  g_return_if_fail (GCA_IS_COMPLETION (completion));
+  g_return_if_fail (G_IS_ASYNC_RESULT (result));
+  g_return_if_fail (G_IS_TASK (task));
+
+  if (!gca_completion_call_complete_finish (completion, &variant, result, &error))
+    {
+      g_task_return_error (task, error);
+      GOTO (failure);
+    }
+
+  g_task_return_pointer (task, variant, (GDestroyNotify)g_variant_unref);
+
+failure:
+  g_object_unref (task);
+
+  EXIT;
+}
+
+/**
+ * gb_source_code_assistant_complete:
+ * @location: (allow-none): A #GtkTextIter or %NULL.
+ * @cancellable: (allow-none): A #GCancellable or %NULL.
+ * @callback: callback to execute upon completion or failure.
+ * @user_data: user data for @callback
+ *
+ * Requests, asynchronously, to determine all the possible completion results
+ * for the position denoted by @location. If @location is %NULL, then the
+ * current insert position of the buffer will be used.
+ *
+ * @callback should call gb_source_code_assistant_complete_finish() to obtain
+ * the results of the request.
+ */
+void
+gb_source_code_assistant_complete (GbSourceCodeAssistant *assistant,
+                                   const GtkTextIter     *location,
+                                   GCancellable          *cancellable,
+                                   GAsyncReadyCallback    callback,
+                                   gpointer               user_data)
+{
+  const gchar *tmpfile;
+  GtkTextIter iter;
+  GVariant *cursor = NULL;
+  GVariant *options = NULL;
+  guint64 line;
+  guint64 line_offset;
+  GTask *task;
+  gchar *path;
+
+  ENTRY;
+
+  g_return_if_fail (GB_IS_SOURCE_CODE_ASSISTANT (assistant));
+  g_return_if_fail (!cancellable || G_IS_CANCELLABLE (cancellable));
+
+  if (!assistant->priv->completion)
+    {
+      g_task_report_new_error (assistant, callback, user_data,
+                               gb_source_code_assistant_complete,
+                               G_DBUS_ERROR, G_DBUS_ERROR_FAILED,
+                               _("Completion proxy has not been loaded."));
+      EXIT;
+    }
+
+  tmpfile = gb_source_code_assistant_get_tmpfile (assistant);
+  path = gb_source_code_assistant_get_path (assistant);
+
+  if (!tmpfile || !path)
+    GOTO (failure);
+
+  if (location)
+    iter = *location;
+  else
+    {
+      GtkTextBuffer *buffer;
+      GtkTextMark *mark;
+
+      buffer = GTK_TEXT_BUFFER (assistant->priv->buffer);
+      mark = gtk_text_buffer_get_insert (buffer);
+      gtk_text_buffer_get_iter_at_mark (buffer, &iter, mark);
+    }
+
+  line = gtk_text_iter_get_line (&iter);
+  line_offset = gtk_text_iter_get_line_offset (&iter);
+
+  cursor = g_variant_new ("(xx)", line, line_offset);
+  options = gb_source_code_assistant_get_options (assistant);
+
+  task = g_task_new (assistant, cancellable, callback, user_data);
+  gca_completion_call_complete (assistant->priv->completion, path, tmpfile,
+                                cursor, options, cancellable,
+                                gb_source_code_assistant_complete_cb,
+                                task);
+
+failure:
+  g_free (path);
+
+  EXIT;
+}
+
+GArray *
+gb_source_code_assistant_complete_finish (GbSourceCodeAssistant  *assistant,
+                                          GAsyncResult           *result,
+                                          GError                **error)
+{
+  g_return_val_if_fail (GB_IS_SOURCE_CODE_ASSISTANT (assistant), NULL);
+  g_return_val_if_fail (G_IS_ASYNC_RESULT (result), NULL);
+
+  return NULL;
 }
 
 static void
@@ -742,7 +892,7 @@ gb_source_code_assistant_set_buffer (GbSourceCodeAssistant *assistant,
  * gb_source_code_assistant_get_active:
  * @assistant: (in): A #GbSourceCodeAssistant.
  *
- * Fetches the "active" property, indicating if the code assistanace service
+ * Fetches the "active" property, indicating if the code assistant service
  * is currently parsing the buffer.
  *
  * Returns: %TRUE if the file is being parsed.

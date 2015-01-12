@@ -52,8 +52,16 @@ struct _GbSourceCodeAssistantClass
 };
 
 GType                  gb_source_code_assistant_get_type        (void);
-GbSourceCodeAssistant *gb_source_code_assistant_new             (GtkTextBuffer         *buffer);
-GArray                *gb_source_code_assistant_get_diagnostics (GbSourceCodeAssistant *assistant);
+GbSourceCodeAssistant *gb_source_code_assistant_new             (GtkTextBuffer          *buffer);
+GArray                *gb_source_code_assistant_get_diagnostics (GbSourceCodeAssistant  *assistant);
+void                   gb_source_code_assistant_complete        (GbSourceCodeAssistant  *assistant,
+                                                                 const GtkTextIter      *location,
+                                                                 GCancellable           *cancellable,
+                                                                 GAsyncReadyCallback     callback,
+                                                                 gpointer                user_data);
+GArray                *gb_source_code_assistant_complete_finish (GbSourceCodeAssistant  *assistant,
+                                                                 GAsyncResult           *result,
+                                                                 GError                **error);
 
 G_END_DECLS
 
