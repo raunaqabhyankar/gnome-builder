@@ -33,7 +33,8 @@
 struct _GbSourceCodeAssistantPrivate
 {
   GtkTextBuffer  *buffer;
-  GcaService     *proxy;
+  GcaCompletion  *completion;
+  GcaService     *service;
   GcaDiagnostics *document_proxy;
   GArray         *diagnostics;
   gchar          *document_path;
@@ -48,6 +49,7 @@ struct _GbSourceCodeAssistantPrivate
   guint           parse_timeout;
   guint           active;
 
+  guint           completion_unknown : 1;
   guint           service_unknown : 1;
 };
 
@@ -109,6 +111,91 @@ gb_source_code_assistant_inc_active (GbSourceCodeAssistant *assistant,
 }
 
 static void
+gb_source_code_assistant_completion_cb (GObject      *object,
+                                        GAsyncResult *result,
+                                        gpointer      user_data)
+{
+  GbSourceCodeAssistant *self = (GbSourceCodeAssistant *)object;
+  GcaCompletion *proxy;
+  GError *error = NULL;
+
+  ENTRY;
+
+  g_return_if_fail (GB_IS_SOURCE_CODE_ASSISTANT (self));
+
+  gb_source_code_assistant_inc_active (self, -1);
+
+  proxy = gca_completion_proxy_new_finish (result, &error);
+
+  if (!proxy)
+    {
+      g_message ("%s", error->message);
+      g_clear_error (&error);
+      GOTO (failure);
+    }
+
+  g_clear_object (&self->priv->completion);
+  self->priv->completion = proxy;
+
+failure:
+  g_object_unref (self);
+
+  EXIT;
+}
+
+static void
+gb_source_code_assistant_load_completion (GbSourceCodeAssistant *self)
+{
+  GtkSourceBuffer *buffer;
+  GtkSourceLanguage *language;
+  const gchar *lang_id;
+  const gchar *mapped_lang;
+  gchar *name;
+  gchar *object_path;
+
+  ENTRY;
+
+  g_return_if_fail (GB_IS_SOURCE_CODE_ASSISTANT (self));
+  g_return_if_fail (self->priv->buffer);
+
+  if (!gDBus)
+    EXIT;
+
+  if (!GTK_SOURCE_IS_BUFFER (self->priv->buffer))
+    EXIT;
+
+  g_clear_object (&self->priv->completion);
+
+  buffer = GTK_SOURCE_BUFFER (self->priv->buffer);
+  language = gtk_source_buffer_get_language (buffer);
+  if (!language)
+    EXIT;
+
+  lang_id = remap_language (gtk_source_language_get_id (language));
+  mapped_lang = g_hash_table_lookup (gLangMappings, lang_id);
+  if (mapped_lang)
+    lang_id = mapped_lang;
+
+  name = g_strdup_printf ("org.gnome.CodeAssist.v1.%s", lang_id);
+  object_path = g_strdup_printf ("/org/gnome/CodeAssist/v1/%s", lang_id);
+
+  gb_source_code_assistant_inc_active (self, 1);
+
+  gca_completion_proxy_new (gDBus,
+                            G_DBUS_PROXY_FLAGS_NONE,
+                            name,
+                            object_path,
+                            self->priv->cancellable,
+                            gb_source_code_assistant_completion_cb,
+                            g_object_ref (self));
+
+  g_free (name);
+  g_free (object_path);
+
+  EXIT;
+}
+
+static void
 gb_source_code_assistant_proxy_cb (GObject      *object,
                                    GAsyncResult *result,
                                    gpointer      user_data)
@@ -132,8 +219,8 @@ gb_source_code_assistant_proxy_cb (GObject      *object,
       EXIT;
     }
 
-  g_clear_object (&assistant->priv->proxy);
-  assistant->priv->proxy = proxy;
+  g_clear_object (&assistant->priv->service);
+  assistant->priv->service = proxy;
 
   gb_source_code_assistant_queue_parse (assistant);
 
@@ -166,7 +253,7 @@ gb_source_code_assistant_load_service (GbSourceCodeAssistant *assistant)
   if (!GTK_SOURCE_IS_BUFFER (priv->buffer))
     EXIT;
 
-  g_clear_object (&priv->proxy);
+  g_clear_object (&priv->service);
 
   buffer = GTK_SOURCE_BUFFER (priv->buffer);
   language = gtk_source_buffer_get_language (buffer);
@@ -425,7 +512,7 @@ gb_source_code_assistant_do_parse (gpointer data)
 
   priv->parse_timeout = 0;
 
-  if (!priv->proxy)
+  if (!priv->service)
     RETURN (G_SOURCE_REMOVE);
 
   insert = gtk_text_buffer_get_insert (priv->buffer);
@@ -491,7 +578,7 @@ gb_source_code_assistant_do_parse (gpointer data)
     }
 
   gb_source_code_assistant_inc_active (assistant, 1);
-  gca_service_call_parse (priv->proxy,
+  gca_service_call_parse (priv->service,
                           path,
                           priv->tmpfile_path,
                           cursor,
@@ -533,6 +620,9 @@ gb_source_code_assistant_buffer_notify_language (GbSourceCodeAssistant *assistan
 
   assistant->priv->service_unknown = 0;
   gb_source_code_assistant_load_service (assistant);
+
+  assistant->priv->completion_unknown = 0;
+  gb_source_code_assistant_load_completion (assistant);
 
   EXIT;
 }
@@ -641,6 +731,7 @@ gb_source_code_assistant_set_buffer (GbSourceCodeAssistant *assistant,
         }
 
       gb_source_code_assistant_load_service (assistant);
+      gb_source_code_assistant_load_completion (assistant);
 
       g_object_notify_by_pspec (G_OBJECT (assistant),
                                 gParamSpecs [PROP_BUFFER]);
@@ -686,7 +777,8 @@ gb_source_code_assistant_finalize (GObject *object)
       priv->buffer = NULL;
     }
 
-  g_clear_object (&priv->proxy);
+  g_clear_object (&priv->completion);
+  g_clear_object (&priv->service);
 
   if (priv->tmpfile_path)
     {
