@@ -27,6 +27,7 @@
 #include "gb-source-auto-indenter-c.h"
 #include "gb-source-auto-indenter-python.h"
 #include "gb-source-auto-indenter-xml.h"
+#include "gb-source-code-assistant-completion.h"
 #include "gb-box-theatric.h"
 #include "gb-cairo.h"
 #include "gb-editor-document.h"
@@ -51,6 +52,7 @@ struct _GbSourceViewPrivate
   GbSourceSearchHighlighter   *search_highlighter;
   GtkTextBuffer               *buffer;
   GbSourceAutoIndenter        *auto_indenter;
+  GtkSourceCompletionProvider *gca_provider;
   GtkSourceCompletionProvider *html_provider;
   GtkSourceCompletionProvider *snippets_provider;
   GtkSourceCompletionProvider *words_provider;
@@ -1183,6 +1185,9 @@ gb_source_view_reload_providers (GbSourceView *view)
                                           NULL);
     }
 
+  if (GB_IS_EDITOR_DOCUMENT (buffer))
+    g_object_set (view->priv->gca_provider, "document", buffer, NULL);
+
   gb_source_view_reload_snippets (view);
 }
 
@@ -1242,6 +1247,7 @@ gb_source_view_notify_buffer (GObject    *object,
       g_object_remove_weak_pointer (G_OBJECT (priv->buffer),
                                     (gpointer *) &priv->buffer);
       priv->buffer = NULL;
+      g_object_set (priv->gca_provider, "document", NULL, NULL);
     }
 
   buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (object));
@@ -2178,6 +2184,9 @@ gb_source_view_constructed (GObject *object)
   gtk_source_completion_add_provider (completion,
                                       source_view->priv->snippets_provider,
                                       NULL);
+  gtk_source_completion_add_provider (completion,
+                                      source_view->priv->gca_provider,
+                                      NULL);
 }
 
 static gboolean
@@ -2234,6 +2243,7 @@ gb_source_view_finalize (GObject *object)
   g_clear_pointer (&priv->snippets, g_queue_free);
   g_clear_object (&priv->search_highlighter);
   g_clear_object (&priv->auto_indenter);
+  g_clear_object (&priv->gca_provider);
   g_clear_object (&priv->html_provider);
   g_clear_object (&priv->snippets_provider);
   g_clear_object (&priv->words_provider);
@@ -2533,6 +2543,10 @@ gb_source_view_init (GbSourceView *view)
   view->priv->snippets_provider =
     g_object_new (GB_TYPE_SOURCE_SNIPPET_COMPLETION_PROVIDER,
                   "source-view", view,
+                  NULL);
+
+  view->priv->gca_provider =
+    g_object_new (GB_TYPE_SOURCE_CODE_ASSISTANT_COMPLETION,
                   NULL);
 
   view->priv->words_provider =

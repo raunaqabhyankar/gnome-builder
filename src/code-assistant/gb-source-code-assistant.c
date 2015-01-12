@@ -655,13 +655,16 @@ gb_source_code_assistant_complete_cb (GObject      *source_object,
 
   if (!gca_completion_call_complete_finish (completion, &variant, result, &error))
     {
+      g_message ("%s", error->message);
       g_task_return_error (task, error);
       GOTO (failure);
     }
 
-  g_task_return_pointer (task, variant, (GDestroyNotify)g_variant_unref);
+  /* TODO: Marshal variant into results */
+  g_variant_print (variant, FALSE);
 
 failure:
+  g_clear_pointer (&variant, g_variant_unref);
   g_object_unref (task);
 
   EXIT;
@@ -752,10 +755,12 @@ gb_source_code_assistant_complete_finish (GbSourceCodeAssistant  *assistant,
                                           GAsyncResult           *result,
                                           GError                **error)
 {
-  g_return_val_if_fail (GB_IS_SOURCE_CODE_ASSISTANT (assistant), NULL);
-  g_return_val_if_fail (G_IS_ASYNC_RESULT (result), NULL);
+  GTask *task = (GTask *)result;
 
-  return NULL;
+  g_return_val_if_fail (GB_IS_SOURCE_CODE_ASSISTANT (assistant), NULL);
+  g_return_val_if_fail (G_IS_TASK (task), NULL);
+
+  return g_task_propagate_pointer (task, error);
 }
 
 static void

@@ -60,6 +60,12 @@ typedef struct
   gchar       *message;
 } GcaDiagnostic;
 
+typedef struct
+{
+  int cursor_kind;
+  int priority;
+} GcaCompletionResult;
+
 GArray *gca_diagnostics_from_variant (GVariant *variant);
 
 G_END_DECLS
