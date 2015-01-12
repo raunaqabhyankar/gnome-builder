@@ -13,4 +13,13 @@
       <arg direction="out" type="o" />
     </method>
   </interface>
+  <interface name="org.gnome.CodeAssist.v1.Completion">
+    <method name="Complete">
+      <arg direction="in"  type="s" name="path" />
+      <arg direction="in"  type="s" name="data_path" />
+      <arg direction="in"  type="(xx)" name="cursor" />
+      <arg direction="in"  type="a{sv}" name="options" />
+      <arg direction="out" type="a(sa(si)si)" />
+    </method>
+  </interface>
 </node>
