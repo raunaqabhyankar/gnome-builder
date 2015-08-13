@@ -23,7 +23,7 @@
 #include "egg-binding-group.h"
 #include "egg-signal-group.h"
 
-#include "ide-animation.h"
+#include "egg-animation.h"
 #include "ide-back-forward-item.h"
 #include "ide-back-forward-list.h"
 #include "ide-box-theatric.h"
@@ -103,8 +103,8 @@ typedef struct
   GQueue                      *snippets;
   GtkSourceCompletionProvider *snippets_provider;
   GtkSourceSearchContext      *search_context;
-  IdeAnimation                *hadj_animation;
-  IdeAnimation                *vadj_animation;
+  EggAnimation                *hadj_animation;
+  EggAnimation                *vadj_animation;
 
   IdeExtensionSetAdapter      *completion_providers;
   EggSignalGroup              *completion_providers_signals;
@@ -642,8 +642,8 @@ animate_expand (IdeSourceView     *self,
                            "y", rect.y,
                            NULL);
 
-  ide_object_animate_full (theatric,
-                           IDE_ANIMATION_EASE_IN_CUBIC,
+  egg_object_animate_full (theatric,
+                           EGG_ANIMATION_EASE_IN_CUBIC,
                            250,
                            gtk_widget_get_frame_clock (GTK_WIDGET (self)),
                            g_object_unref,
@@ -701,8 +701,8 @@ animate_shrink (IdeSourceView     *self,
                            NULL);
 
   if (is_whole_line)
-    ide_object_animate_full (theatric,
-                             IDE_ANIMATION_EASE_OUT_QUAD,
+    egg_object_animate_full (theatric,
+                             EGG_ANIMATION_EASE_OUT_QUAD,
                              150,
                              gtk_widget_get_frame_clock (GTK_WIDGET (self)),
                              g_object_unref,
@@ -714,8 +714,8 @@ animate_shrink (IdeSourceView     *self,
                              "alpha", 0.3,
                              NULL);
   else if (is_single_line)
-    ide_object_animate_full (theatric,
-                             IDE_ANIMATION_EASE_OUT_QUAD,
+    egg_object_animate_full (theatric,
+                             EGG_ANIMATION_EASE_OUT_QUAD,
                              150,
                              gtk_widget_get_frame_clock (GTK_WIDGET (self)),
                              g_object_unref,
@@ -727,8 +727,8 @@ animate_shrink (IdeSourceView     *self,
                              "alpha", 0.3,
                              NULL);
   else
-    ide_object_animate_full (theatric,
-                             IDE_ANIMATION_EASE_OUT_QUAD,
+    egg_object_animate_full (theatric,
+                             EGG_ANIMATION_EASE_OUT_QUAD,
                              150,
                              gtk_widget_get_frame_clock (GTK_WIDGET (self)),
                              g_object_unref,
@@ -4855,13 +4855,13 @@ ide_source_view_dispose (GObject *object)
 
   if (priv->hadj_animation)
     {
-      ide_animation_stop (priv->hadj_animation);
+      egg_animation_stop (priv->hadj_animation);
       ide_clear_weak_pointer (&priv->hadj_animation);
     }
 
   if (priv->vadj_animation)
     {
-      ide_animation_stop (priv->vadj_animation);
+      egg_animation_stop (priv->vadj_animation);
       ide_clear_weak_pointer (&priv->vadj_animation);
     }
 
@@ -6819,13 +6819,13 @@ ide_source_view_scroll_to_iter (IdeSourceView     *self,
 
       if (priv->hadj_animation != NULL)
         {
-          ide_animation_stop (priv->hadj_animation);
+          egg_animation_stop (priv->hadj_animation);
           ide_clear_weak_pointer (&priv->hadj_animation);
         }
 
       priv->hadj_animation =
-        ide_object_animate (hadj,
-                            IDE_ANIMATION_EASE_OUT_CUBIC,
+        egg_object_animate (hadj,
+                            EGG_ANIMATION_EASE_OUT_CUBIC,
                             duration_msec,
                             frame_clock,
                             "value", (double)xvalue,
@@ -6835,13 +6835,13 @@ ide_source_view_scroll_to_iter (IdeSourceView     *self,
 
       if (priv->vadj_animation != NULL)
         {
-          ide_animation_stop (priv->vadj_animation);
+          egg_animation_stop (priv->vadj_animation);
           ide_clear_weak_pointer (&priv->vadj_animation);
         }
 
       priv->vadj_animation =
-        ide_object_animate_full (vadj,
-                                 IDE_ANIMATION_EASE_OUT_CUBIC,
+        egg_object_animate_full (vadj,
+                                 EGG_ANIMATION_EASE_OUT_CUBIC,
                                  duration_msec,
                                  frame_clock,
                                  (GDestroyNotify)ide_source_view__vadj_animation_completed,
