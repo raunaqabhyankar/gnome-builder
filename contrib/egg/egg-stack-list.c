@@ -147,6 +147,19 @@ egg_stack_list__overlay__get_child_position (EggStackList *self,
 }
 
 static void
+egg_stack_list_scroll_to_top (EggStackList *self)
+{
+  EggStackListPrivate *priv = egg_stack_list_get_instance_private (self);
+  GtkAdjustment *vadj;
+
+  g_assert (EGG_IS_STACK_LIST (self));
+
+  vadj = gtk_scrolled_window_get_vadjustment (priv->scroller);
+
+  gtk_adjustment_set_value (vadj, 0.0);
+}
+
+static void
 egg_stack_list_end_anim (EggStackList *self)
 {
   EggStackListPrivate *priv = egg_stack_list_get_instance_private (self);
@@ -182,6 +195,8 @@ egg_stack_list_end_anim (EggStackList *self)
                            egg_stack_list_create_widget_func,
                            info,
                            NULL);
+
+  egg_stack_list_scroll_to_top (self);
 
   gtk_stack_set_visible_child (GTK_STACK (priv->flip_stack), GTK_WIDGET (priv->scroller));
 
@@ -465,6 +480,7 @@ egg_stack_list_push (EggStackList                 *self,
                                egg_stack_list_create_widget_func,
                                info,
                                NULL);
+      egg_stack_list_scroll_to_top (self);
       g_object_notify_by_pspec (G_OBJECT (self), gParamSpecs [PROP_MODEL]);
       return;
     }
