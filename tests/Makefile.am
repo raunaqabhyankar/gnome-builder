@@ -133,6 +133,12 @@ test_vim_LDADD = \
 	$(NULL)
 
 
+misc_programs += test-stack-list
+test_stack_list_SOURCES = test-stack-list.c
+test_stack_list_CFLAGS = $(tests_cflags)
+test_stack_list_LDADD = $(tests_libs)
+
+
 misc_programs += test-ide-source-view
 test_ide_source_view_SOURCES = test-ide-source-view.c
 test_ide_source_view_CFLAGS = $(tests_cflags)

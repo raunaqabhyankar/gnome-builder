@@ -7,16 +7,22 @@ libegg_la_SOURCES = \
 	egg-binding-group.h \
 	egg-counter.c \
 	egg-counter.h \
+	egg-directory-model.c \
+	egg-directory-model.h \
 	egg-frame-source.c \
 	egg-frame-source.h \
 	egg-heap.c \
 	egg-heap.h \
+	egg-rect.c \
+	egg-rect.h \
 	egg-search-bar.c \
 	egg-search-bar.h \
 	egg-settings-sandwich.c \
 	egg-settings-sandwich.h \
 	egg-signal-group.c \
 	egg-signal-group.h \
+	egg-stack-list.c \
+	egg-stack-list.h \
 	egg-state-machine.c \
 	egg-state-machine.h \
 	egg-state-machine-action.c \
