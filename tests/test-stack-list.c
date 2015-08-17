@@ -32,6 +32,15 @@
   " color: #2e3436;" \
   " padding-bottom: 3px;" \
   "}\n" \
+  "EggStackList GtkListBox.stack-header GtkListBoxRow:hover, " \
+  "EggStackList GtkListBox GtkListBoxRow:hover {" \
+  " background-color: #dfdfdf;" \
+  "}\n" \
+  "EggStackList GtkListBox.stack-header GtkListBoxRow:active, " \
+  "EggStackList GtkListBox GtkListBoxRow:active {" \
+  " color: #ffffff;" \
+  " background-color: #4a90d9;" \
+  "}\n" \
   "EggStackList GtkListBox.stack-header GtkListBoxRow {" \
   " background-color: #fafafa;" \
   " color: #919191;" \
