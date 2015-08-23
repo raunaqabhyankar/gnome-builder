@@ -7,16 +7,10 @@ pkglibdir = $(libdir)/gnome-builder
 pkglib_LTLIBRARIES = libide-1.0.la
 
 libide_1_0_la_public_sources = \
-	directory/ide-directory-vcs.c \
-	directory/ide-directory-vcs.h \
 	doap/ide-doap-person.c \
 	doap/ide-doap-person.h \
 	doap/ide-doap.c \
 	doap/ide-doap.h \
-	git/ide-git-remote-callbacks.c \
-	git/ide-git-remote-callbacks.h \
-	git/ide-git-vcs.c \
-	git/ide-git-vcs.h \
 	ide-back-forward-item.c \
 	ide-back-forward-item.h \
 	ide-back-forward-list.c \
@@ -185,8 +179,6 @@ libide_1_0_la_SOURCES = \
 	editorconfig/ide-editorconfig-file-settings.c \
 	editorconfig/ide-editorconfig-file-settings.h \
 	gconstructor.h \
-	git/ide-git-buffer-change-monitor.c \
-	git/ide-git-buffer-change-monitor.h \
 	gjs/ide-gjs-script.cpp \
 	gjs/ide-gjs-script.h \
 	gsettings/ide-gsettings-file-settings.c \
@@ -255,10 +247,8 @@ libide_1_0_la_includes = \
 	-I$(top_srcdir)/contrib/search \
 	-I$(top_srcdir)/contrib/xml \
 	-I$(srcdir) \
-	-I$(srcdir)/directory \
 	-I$(srcdir)/doap \
 	-I$(srcdir)/editorconfig \
-	-I$(srcdir)/git \
 	-I$(srcdir)/gjs \
 	-I$(srcdir)/gsettings \
 	-I$(srcdir)/local \

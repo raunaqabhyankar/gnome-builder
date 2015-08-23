@@ -1,4 +1,4 @@
-/* ide-git-vcs.h
+/* git-plugin.c
  *
  * Copyright (C) 2015 Christian Hergert <christian@hergert.me>
  *
@@ -16,21 +16,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef IDE_GIT_VCS_H
-#define IDE_GIT_VCS_H
+#include <libpeas/peas.h>
+#include <ide.h>
 
-#include <libgit2-glib/ggit.h>
+#include "ide-git-vcs.h"
 
-#include "ide-vcs.h"
-
-G_BEGIN_DECLS
-
-#define IDE_TYPE_GIT_VCS (ide_git_vcs_get_type())
-
-G_DECLARE_FINAL_TYPE (IdeGitVcs, ide_git_vcs, IDE, GIT_VCS, IdeVcs)
-
-GgitRepository *ide_git_vcs_get_repository (IdeGitVcs *vcs);
-
-G_END_DECLS
-
-#endif /* IDE_GIT_VCS_H */
+void
+peas_register_types (PeasObjectModule *module)
+{
+  peas_object_module_register_extension_type (module, IDE_TYPE_VCS, IDE_TYPE_GIT_VCS);
+}

@@ -402,6 +402,7 @@ AC_CONFIG_FILES([
 	plugins/device-manager/Makefile
 	plugins/fallback/Makefile
 	plugins/file-search/Makefile
+	plugins/git/Makefile
 	plugins/gnome-code-assistance/Makefile
 	plugins/html-completion/Makefile
 	plugins/jedi/Makefile

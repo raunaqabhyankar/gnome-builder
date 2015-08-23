@@ -1,4 +1,4 @@
-/* ide-directory-vcs.h
+/* ide-git-vcs.h
  *
  * Copyright (C) 2015 Christian Hergert <christian@hergert.me>
  *
@@ -16,18 +16,20 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef IDE_DIRECTORY_VCS_H
-#define IDE_DIRECTORY_VCS_H
+#ifndef IDE_GIT_VCS_H
+#define IDE_GIT_VCS_H
 
-#include "ide-vcs.h"
+#include <libgit2-glib/ggit.h>
+#include <ide.h>
 
 G_BEGIN_DECLS
 
-#define IDE_TYPE_DIRECTORY_VCS (ide_directory_vcs_get_type())
+#define IDE_TYPE_GIT_VCS (ide_git_vcs_get_type())
 
-G_DECLARE_FINAL_TYPE (IdeDirectoryVcs, ide_directory_vcs,
-                      IDE, DIRECTORY_VCS, IdeVcs)
+G_DECLARE_FINAL_TYPE (IdeGitVcs, ide_git_vcs, IDE, GIT_VCS, IdeObject)
+
+GgitRepository *ide_git_vcs_get_repository (IdeGitVcs *vcs);
 
 G_END_DECLS
 
-#endif /* IDE_DIRECTORY_VCS_H */
+#endif /* IDE_GIT_VCS_H */

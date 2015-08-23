@@ -25,14 +25,13 @@
 
 G_BEGIN_DECLS
 
-#define IDE_TYPE_VCS            (ide_vcs_get_type())
-#define IDE_VCS_EXTENSION_POINT "org.gnome.libide.extensions.vcs"
+#define IDE_TYPE_VCS (ide_vcs_get_type())
 
-G_DECLARE_DERIVABLE_TYPE (IdeVcs, ide_vcs, IDE, VCS, IdeObject)
+G_DECLARE_INTERFACE (IdeVcs, ide_vcs, IDE, VCS, IdeObject)
 
-struct _IdeVcsClass
+struct _IdeVcsInterface
 {
-  IdeObjectClass parent;
+  GTypeInterface parent_iface;
 
   GFile                  *(*get_working_directory)     (IdeVcs     *self);
   IdeBufferChangeMonitor *(*get_buffer_change_monitor) (IdeVcs     *self,

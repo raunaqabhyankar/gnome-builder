@@ -94,11 +94,8 @@ G_BEGIN_DECLS
 #include "ide-vcs.h"
 #include "ide-vcs-uri.h"
 
-#include "directory/ide-directory-vcs.h"
 #include "doap/ide-doap-person.h"
 #include "doap/ide-doap.h"
-#include "git/ide-git-remote-callbacks.h"
-#include "git/ide-git-vcs.h"
 #include "local/ide-local-device.h"
 #include "theatrics/ide-animation.h"
 #include "util/ide-line-reader.h"

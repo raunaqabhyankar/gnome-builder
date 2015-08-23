@@ -24,10 +24,8 @@
 #include "gconstructor.h"
 #include "ide.h"
 
-#include "ide-directory-vcs.h"
 #include "ide-editorconfig-file-settings.h"
 #include "ide-file-settings.h"
-#include "ide-git-vcs.h"
 #include "ide-gjs-script.h"
 #include "ide-gsettings-file-settings.h"
 #include "ide-modelines-file-settings.h"
@@ -81,7 +79,6 @@ ide_init_ctor (void)
 
   g_io_extension_point_register (IDE_FILE_SETTINGS_EXTENSION_POINT);
   g_io_extension_point_register (IDE_SCRIPT_EXTENSION_POINT);
-  g_io_extension_point_register (IDE_VCS_EXTENSION_POINT);
 
   g_io_extension_point_implement (IDE_FILE_SETTINGS_EXTENSION_POINT,
                                   IDE_TYPE_MODELINES_FILE_SETTINGS,
@@ -105,15 +102,6 @@ ide_init_ctor (void)
                                   IDE_TYPE_PYGOBJECT_SCRIPT,
                                   IDE_SCRIPT_EXTENSION_POINT".py",
                                   -100);
-
-  g_io_extension_point_implement (IDE_VCS_EXTENSION_POINT,
-                                  IDE_TYPE_GIT_VCS,
-                                  IDE_VCS_EXTENSION_POINT".git",
-                                  -100);
-  g_io_extension_point_implement (IDE_VCS_EXTENSION_POINT,
-                                  IDE_TYPE_DIRECTORY_VCS,
-                                  IDE_VCS_EXTENSION_POINT".directory",
-                                  -200);
 
   modeline_parser_init ();
 

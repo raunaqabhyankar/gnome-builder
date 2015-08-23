@@ -6,6 +6,8 @@ libfallback_plugin_la_SOURCES = \
 	fallback-plugin.c \
 	ide-directory-build-system.c \
 	ide-directory-build-system.h \
+	ide-directory-vcs.c \
+	ide-directory-vcs.h \
 	$(NULL)
 
 libfallback_plugin_la_CFLAGS = \

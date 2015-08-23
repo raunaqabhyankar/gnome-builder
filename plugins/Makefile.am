@@ -8,6 +8,7 @@ SUBDIRS = \
 	device-manager \
 	fallback \
 	file-search \
+	git \
 	gnome-code-assistance \
 	html-completion \
 	jedi \
