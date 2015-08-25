@@ -155,6 +155,16 @@ test_vim_LDADD = \
 	$(NULL)
 
 
+TESTS += test-fill-box
+test_fill_box_SOURCES = test-fill-box.c
+test_fill_box_CFLAGS = \
+	$(tests_cflags) \
+	$(NULL)
+test_fill_box_LDADD = \
+	$(tests_libs) \
+	$(NULL)
+
+
 misc_programs += test-ide-source-view
 test_ide_source_view_SOURCES = test-ide-source-view.c
 test_ide_source_view_CFLAGS = $(tests_cflags)

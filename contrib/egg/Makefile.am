@@ -6,6 +6,8 @@ libegg_private_la_SOURCES = \
 	egg-binding-group.h \
 	egg-counter.c \
 	egg-counter.h \
+	egg-fill-box.c \
+	egg-fill-box.h \
 	egg-heap.c \
 	egg-heap.h \
 	egg-search-bar.c \
