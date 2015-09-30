@@ -34,6 +34,7 @@
 #include "views/gb-view-stack.h"
 #include "views/gb-view-stack-split.h"
 #include "workbench/gb-workbench.h"
+#include "workspace/gb-panel-addin.h"
 
 #include "gb-enums.h"
 

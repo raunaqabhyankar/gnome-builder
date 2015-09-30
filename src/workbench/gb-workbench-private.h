@@ -24,6 +24,7 @@
 #include <libpeas/peas.h>
 #include <ide.h>
 
+#include "gb-panel-addin.h"
 #include "gb-project-tree.h"
 #include "gb-search-box.h"
 #include "gb-slider.h"
@@ -42,6 +43,7 @@ struct _GbWorkbench
   GCancellable           *unload_cancellable;
   gchar                  *current_folder_uri;
   PeasExtensionSet       *extensions;
+  PeasExtensionSet       *panel_addins;
 
   /* Weak Reference */
   GtkWidget              *active_view;

@@ -466,6 +466,66 @@ gb_workbench__extension_removed (PeasExtensionSet *set,
 }
 
 static void
+gb_workbench__panel_added (PeasExtensionSet *set,
+                           PeasPluginInfo   *plugin_info,
+                           GbPanelAddin     *addin,
+                           GbWorkbench      *self)
+{
+  GbPanelPosition position;
+  GtkWidget *pane;
+
+  g_assert (PEAS_IS_EXTENSION_SET (set));
+  g_assert (plugin_info != NULL);
+  g_assert (GB_IS_PANEL_ADDIN (addin));
+  g_assert (GB_IS_WORKBENCH (self));
+
+  g_object_ref_sink (addin);
+
+  position = gb_panel_addin_get_position (addin);
+
+  switch (position)
+    {
+    case GB_PANEL_LEFT:
+      pane = gb_workspace_get_left_pane (self->workspace);
+      break;
+
+    case GB_PANEL_RIGHT:
+      pane = gb_workspace_get_right_pane (self->workspace);
+      break;
+
+    case GB_PANEL_BOTTOM:
+      pane = gb_workspace_get_bottom_pane (self->workspace);
+      break;
+
+    default:
+      g_warning ("Unknown panel position: %02x", position);
+      return;
+    }
+
+  gb_workspace_pane_add_page (GB_WORKSPACE_PANE (pane),
+                              GTK_WIDGET (addin),
+                              gb_panel_addin_get_title (addin),
+                              gb_panel_addin_get_icon_name (addin));
+
+  gb_panel_addin_load (addin, self);
+}
+
+static void
+gb_workbench__panel_removed (PeasExtensionSet *set,
+                             PeasPluginInfo   *plugin_info,
+                             GbPanelAddin     *addin,
+                             GbWorkbench      *self)
+{
+  g_assert (PEAS_IS_EXTENSION_SET (set));
+  g_assert (plugin_info != NULL);
+  g_assert (GB_IS_PANEL_ADDIN (addin));
+  g_assert (GB_IS_WORKBENCH (self));
+
+  gb_panel_addin_unload (addin, self);
+  gtk_widget_destroy (GTK_WIDGET (addin));
+}
+
+static void
 gb_workbench_constructed (GObject *object)
 {
   GbWorkbench *self = (GbWorkbench *)object;
@@ -496,6 +556,21 @@ gb_workbench_constructed (GObject *object)
   g_signal_connect (self->extensions,
                     "extension-removed",
                     G_CALLBACK (gb_workbench__extension_removed),
+                    self);
+
+  self->panel_addins = peas_extension_set_new (peas_engine_get_default (),
+                                               GB_TYPE_PANEL_ADDIN,
+                                               NULL);
+  peas_extension_set_foreach (self->panel_addins,
+                              (PeasExtensionSetForeachFunc)gb_workbench__panel_added,
+                              self);
+  g_signal_connect (self->panel_addins,
+                    "extension-added",
+                    G_CALLBACK (gb_workbench__panel_added),
+                    self);
+  g_signal_connect (self->panel_addins,
+                    "extension-removed",
+                    G_CALLBACK (gb_workbench__panel_removed),
                     self);
 
   gtk_widget_grab_focus (GTK_WIDGET (self->workspace));
@@ -560,6 +635,16 @@ chainup:
 }
 
 static void
+gb_workbench_real_unload (GbWorkbench *self,
+                          IdeContext  *context)
+{
+  g_assert (GB_IS_WORKBENCH (self));
+  g_assert (IDE_IS_CONTEXT (context));
+
+  g_clear_object (&self->panel_addins);
+}
+
+static void
 gb_workbench_dispose (GObject *object)
 {
   GbWorkbench *self = (GbWorkbench *)object;
@@ -584,9 +669,9 @@ gb_workbench_finalize (GObject *object)
 
   IDE_ENTRY;
 
+  g_clear_object (&self->extensions);
   g_clear_object (&self->context);
   g_clear_pointer (&self->current_folder_uri, g_free);
-  g_clear_object (&self->extensions);
 
   G_OBJECT_CLASS (gb_workbench_parent_class)->finalize (object);
 
@@ -692,14 +777,14 @@ gb_workbench_class_init (GbWorkbenchClass *klass)
   g_object_class_install_properties (object_class, LAST_PROP, gParamSpecs);
 
   gSignals [UNLOAD] =
-    g_signal_new ("unload",
-                  G_TYPE_FROM_CLASS (klass),
-                  G_SIGNAL_RUN_LAST,
-                  0,
-                  NULL, NULL, NULL,
-                  G_TYPE_NONE,
-                  1,
-                  IDE_TYPE_CONTEXT);
+    g_signal_new_class_handler ("unload",
+                                G_TYPE_FROM_CLASS (klass),
+                                G_SIGNAL_RUN_FIRST,
+                                G_CALLBACK (gb_workbench_real_unload),
+                                NULL, NULL, NULL,
+                                G_TYPE_NONE,
+                                1,
+                                IDE_TYPE_CONTEXT);
 
   GB_WIDGET_CLASS_TEMPLATE (klass, "gb-workbench.ui");
   GB_WIDGET_CLASS_BIND (klass, GbWorkbench, gear_menu_button);
@@ -715,6 +800,7 @@ gb_workbench_class_init (GbWorkbenchClass *klass)
   g_type_ensure (GB_TYPE_VIEW_GRID);
   g_type_ensure (GB_TYPE_WORKSPACE);
   g_type_ensure (GB_TYPE_WORKSPACE_PANE);
+  g_type_ensure (GB_TYPE_PANEL_ADDIN);
   g_type_ensure (GEDIT_TYPE_MENU_STACK_SWITCHER);
 }
 

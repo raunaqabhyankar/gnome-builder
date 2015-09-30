@@ -36,6 +36,8 @@ libgnome_builder_public_sources = \
 	views/gb-view-stack.h \
 	views/gb-view-grid.c \
 	views/gb-view-grid.h \
+	workspace/gb-panel-addin.c \
+	workspace/gb-panel-addin.h \
 	workbench/gb-workbench.c \
 	workbench/gb-workbench.h \
 	$(NULL)
@@ -195,6 +197,7 @@ glib_enum_h = gb-enums.h
 glib_enum_c = gb-enums.c
 glib_enum_headers =  \
 	views/gb-view-stack-split.h \
+	workspace/gb-panel-addin.h \
 	$(NULL)
 include $(top_srcdir)/build/autotools/Makefile.am.enums
 

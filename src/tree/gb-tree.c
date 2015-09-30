@@ -1636,7 +1636,7 @@ gb_tree_model_filter_visible_func (GtkTreeModel *model,
 /**
  * gb_tree_set_filter:
  * @self: A #GbTree
- * @filter_func: (scope notified): A callback to determien visibility.
+ * @filter_func: (allow-none) (scope notified): A callback to determien visibility.
  * @filter_data: User data for @filter_func.
  * @filter_data_destroy: Destroy notify for @filter_data.
  *

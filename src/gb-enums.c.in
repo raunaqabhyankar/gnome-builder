@@ -6,6 +6,7 @@
 #include "ide-enums.h"
 
 #include "gb-view-stack-split.h"
+#include "gb-panel-addin.h"
 
 /*** END file-header ***/
 
