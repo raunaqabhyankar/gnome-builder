@@ -23,6 +23,7 @@ from gettext import gettext as _
 
 import gi
 import os
+import re
 
 gi.require_version('Builder', '1.0')
 gi.require_version('Ide', '1.0')
@@ -36,6 +37,10 @@ from gi.repository import GObject
 from gi.repository import Ide
 from gi.repository import WebKit2
 from gi.repository import Peas
+
+TAG = re.compile(u'(<.+?>)')
+IDENT = u'53bde44bb4f156e94a85723fe633c80b54f11f69'
+B = re.compile(u'(?<=[a-zA-Z\d\u4e00-\u9fa5])\B(?=[a-zA-Z\d\u4e00-\u9fa5])')
 
 class HtmlPreviewData(GObject.Object, Builder.ApplicationAddin):
     MARKDOWN_CSS = None
@@ -104,7 +109,6 @@ class HtmlPreviewView(Builder.View):
         settings = self.webview.get_settings()
         settings.enable_html5_local_storage = False
 
-
         language = document.get_language()
         if language and language.get_id() == 'markdown':
             self.markdown = True
@@ -120,7 +124,27 @@ class HtmlPreviewView(Builder.View):
         return self.document
 
     def get_markdown(self, text):
-        text = text.replace("\"", "\\\"").replace("\n", "\\n")
+        # Determine the location of the insert cursor.
+        insert = self.document.get_insert()
+        iter = self.document.get_iter_at_mark(insert)
+        line = iter.get_line()
+
+        # However, we want to try to give some context while editing.
+        # So try to give 10 lines of context above.
+        #if line < 10:
+        #    line = 0
+        #else:
+        #    line -= 10
+
+        lines = text.split('\n')
+        if TAG.search(lines[line]) is not None:
+            lines[line] = TAG.sub(u'\\1 ' + IDENT, lines[line], 1)
+        else:
+            lines[line] = B.sub(IDENT, lines[line], 1)
+
+        # Generate our custom HTML with replaced text
+        text = '\n'.join(lines).replace("\"", "\\\"").replace("\n", "\\n")
+
         params = (HtmlPreviewData.MARKDOWN_CSS,
                   text,
                   HtmlPreviewData.MARKED_JS,
