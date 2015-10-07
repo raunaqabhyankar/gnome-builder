@@ -39,7 +39,10 @@ from gi.repository import WebKit2
 from gi.repository import Peas
 
 TAG = re.compile(u'(<.+?>)')
+LINK_REF = re.compile(u'^\[.+?\]:')
+TABLEROW_REF = re.compile(u'^\|(?![ \t]*[-:])(.+)')
 IDENT = u'53bde44bb4f156e94a85723fe633c80b54f11f69'
+RIDENT = IDENT[::-1]
 B = re.compile(u'(?<=[a-zA-Z\d\u4e00-\u9fa5])\B(?=[a-zA-Z\d\u4e00-\u9fa5])')
 
 class HtmlPreviewData(GObject.Object, Builder.ApplicationAddin):
@@ -102,6 +105,9 @@ class HtmlPreviewView(Builder.View):
     def __init__(self, document, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.document = document
+        self.line = -1
+        self.loaded = False
+        self.changed = False
 
         self.webview = WebKit2.WebView(visible=True, expand=True)
         self.add(self.webview)
@@ -113,8 +119,12 @@ class HtmlPreviewView(Builder.View):
         if language and language.get_id() == 'markdown':
             self.markdown = True
 
+        self.webview.connect ('load-changed', self.on_webview_loaded)
         document.connect('changed', self.on_changed)
         self.on_changed(document)
+
+        document.connect('notify::cursor-position', self.on_cursor_position_changed)
+        self.webview.connect_object ('destroy', self.on_webview_closed, document)
 
     def do_get_title(self):
         title = self.document.get_title()
@@ -124,26 +134,30 @@ class HtmlPreviewView(Builder.View):
         return self.document
 
     def get_markdown(self, text):
-        # Determine the location of the insert cursor.
-        insert = self.document.get_insert()
-        iter = self.document.get_iter_at_mark(insert)
-        line = iter.get_line()
-
-        # However, we want to try to give some context while editing.
-        # So try to give 10 lines of context above.
-        #if line < 10:
-        #    line = 0
-        #else:
-        #    line -= 10
-
         lines = text.split('\n')
-        if TAG.search(lines[line]) is not None:
-            lines[line] = TAG.sub(u'\\1 ' + IDENT, lines[line], 1)
-        else:
-            lines[line] = B.sub(IDENT, lines[line], 1)
+        new_lines = []
+
+        for index, line in enumerate(lines):
+            prefix = IDENT + str(index).zfill(6)
+
+            if (line != ''):
+                if TAG.search(line) is not None:
+                    new_line = TAG.sub(u'\\1 ' + prefix, line, 1)
+                elif LINK_REF.search(line) is not None:
+                    # we don't put ident on link reference
+                    new_line = line
+                elif TABLEROW_REF.search(line) is not None:
+                    # we put an ident only on row, after the pipe, not on a header
+                    new_line = TABLEROW_REF.sub(u'|' + prefix + '\\1', line, 1)
+                else:
+                    new_line = B.sub(prefix, line, 1)
+
+                new_lines.append(new_line.replace("\\n", "\\\\n").replace("\\r", "\\\\r").replace("\\t", "\\\\t"))
+            else:
+                new_lines.append(' ')
 
         # Generate our custom HTML with replaced text
-        text = '\n'.join(lines).replace("\"", "\\\"").replace("\n", "\\n")
+        text = '\n'.join(new_lines).replace("\"", "\\\"").replace("\n", "\\n")
 
         params = (HtmlPreviewData.MARKDOWN_CSS,
                   text,
@@ -158,16 +172,17 @@ class HtmlPreviewView(Builder.View):
   <script>%s</script>
   <script>%s</script>
  </head>
- <body onload="preview()">
+ <body>
   <div class="markdown-body" id="preview">
   </div>
  </body>
 </html>
 """ % params
 
-    def reload(self):
+    def on_changed(self, document):
+        self.loaded = False
+        self.changed = True
         base_uri = self.document.get_file().get_file().get_uri()
-
         begin, end = self.document.get_bounds()
         text = self.document.get_text(begin, end, True)
 
@@ -176,5 +191,49 @@ class HtmlPreviewView(Builder.View):
 
         self.webview.load_html(text, base_uri)
 
-    def on_changed(self, document):
-        self.reload()
+    def on_webview_closed (self, document):
+        document.disconnect_by_func(self.on_changed)
+        document.disconnect_by_func(self.on_cursor_position_changed)
+
+    def on_webview_loaded (self, webview, event):
+        if event == WebKit2.LoadEvent.FINISHED and self.loaded == False:
+            self.loaded = True
+            self.webview.run_javascript('preview();', None, self.on_webview_loaded_cb)
+
+    def on_webview_loaded_cb (self, webview, result):
+        res = webview.run_javascript_finish(result)
+
+        self.on_cursor_position_changed (None, self.document)
+
+    def on_cursor_position_changed (self, pspec, document):
+        if self.loaded:
+            # Determine the location of the insert cursor.
+            insert = self.document.get_insert()
+            iter = self.document.get_iter_at_mark(insert)
+            line = iter.get_line()
+
+            if (line != self.line or self.changed):
+                self.changed = False
+                # give some context while editing.
+                # So try to give 10 lines of context above.
+                context = 0
+
+                script = """
+var id;
+var line = ({0} > 0) ? {0} : 0;
+
+for (; line >= 0; --line) {{
+  id = rFlagSign + ("000000" + line).slice(-6);
+  if (document.getElementById(id)) {{
+    break;
+  }}
+}}
+
+location.hash = id;
+""".format(line - context)
+
+                self.webview.run_javascript(script, None, self.cursor_position_changed_cb)
+                self.line = line
+
+    def cursor_position_changed_cb (self, webview, result):
+        res = webview.run_javascript_finish(result)
