@@ -323,6 +323,8 @@ egg_search_bar_class_init (EggSearchBarClass *klass)
                                 G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
                                 G_CALLBACK (egg_search_bar_reveal),
                                 NULL, NULL, NULL, G_TYPE_NONE, 0);
+
+  gtk_widget_class_set_css_name (widget_class, "eggsearchbar");
 }
 
 static void

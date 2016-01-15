@@ -2,51 +2,150 @@
 
 
 /*
- * Editor tweak widget.
- */
-GbEditorTweakWidget GtkScrolledWindow {
-  border-top: none;
-}
-
-
-
-/* FileChooserButton|Entry */
-box.linked-on-right button {
-  border-top-right-radius: 0px;
-  border-bottom-right-radius: 0px;
-  border-right: 0px;
-}
-
-
-/*
- * Adjust devhelp styling.
- */
-devhelppanel entry:first-child {
-  border-left: none;
-  border-right: none;
-  border-top: none;
-  border-radius: 0px;
-}
-
-
-/*
- * Adjust symbol panel styling.
- */
-symboltree entry {
-  border-left: none;
-  border-right: none;
-  border-top: none;
-  border-radius: 0px;
-}
-
-
-/*
- * WORKAROUND:
+ * Titlebar adjustments for workbench
  *
- * Currently, the separator color is wrong in GtkTextView's popup menu.
- * See https://bugzilla.gnome.org/show_bug.cgi?id=759765
+ * This is needed due to our placement of headerbar inside of a
+ * stack. We were seeing black edges around the header bar, and
+ * improper radius on the headerbar.
  */
-menu separator {
-  color: alpha(@borders, 0.2);
-  background-color: alpha(@borders, 0.2);
+workbench stack.titlebar {
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  box-shadow: none;
+  padding: 0;
 }
+workbench stack.titlebar headerbar {
+  border-radius: 6px 6px 0 0;
+  margin: 0;
+  border-bottom: none;
+  box-shadow: 0 -1px 0 @borders inset;
+}
+workbench stack.titlebar headerbar:backdrop {
+  box-shadow: 0 -1px 0 alpha(@borders, 0.6) inset;
+}
+
+
+/*
+ * Greeter tweaks
+ *
+ * The following tweaks the greeter perspective by adding
+ * separator lines to the list box.
+ */
+greeter list row {
+  border-bottom: 1px solid alpha(@borders, 0.2);
+}
+greeter list row:last-child {
+  border-bottom: none;
+}
+greeter frame border {
+  border-color: alpha(@borders, 0.6);
+}
+
+
+/*
+ * Global search results styling
+ *
+ * The following tweaks the sizing of listbox rows in the
+ * global search results to have a bit more padding and
+ * row separators after each line. Additionally, we tweak
+ * the selection color to ensure it has priority.
+ */
+omnisearchdisplay omnisearchgroup omnisearchrow {
+  background: transparent;
+  padding: 9px 12px 9px 12px;
+  border-bottom: 1px solid alpha(@borders, 0.2);
+}
+omnisearchdisplay omnisearchgroup omnisearchrow:last-child {
+  border-bottom: none;
+}
+omnisearchdisplay omnisearchgroup omnisearchrow:selected {
+  background-color: @theme_selected_bg_color;
+  color: @theme_selected_fg_color;
+}
+
+
+/*
+ * Preferences styling
+ *
+ * The following tweaks our preferences styling in the
+ * preferences perspective, including groups, rows,
+ * sidebar, etc.
+ */
+workbench preferences preferencesgroup list row {
+  padding: 10px;
+  border-bottom: 1px solid alpha(@borders, 0.2);
+}
+workbench preferences preferencesgroup list row:last-child {
+  border-bottom: none;
+}
+workbench preferences preferencesgroup list entry {
+  background: none;
+}
+
+
+/*
+ * Perspectives switcher
+ *
+ * The following tweaks the left-most sidebar containing
+ * the list of perspectives.
+ */
+perspectiveswitcher button {
+  background: transparent;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+  padding: 6px;
+}
+
+
+
+/*
+ * Layout tab and tab bar tweaks
+ *
+ * The following makes the layout stack header look similar to a tab bar.
+ */
+layouttabbar button {
+  border: none;
+  box-shadow: none;
+  background: transparent;
+}
+layouttab label {
+  padding: 5px;
+}
+layouttab {
+  background-color: @theme_bg_color;
+
+  border-bottom: 3px;
+  border-bottom-style: solid;
+
+  border-right: 1px solid alpha(@borders, 0.4);
+  border-left: 1px solid alpha(@borders, 0.4);
+}
+layouttab:backdrop {
+  background: transparent;
+  border-color: transparent;
+}
+layouttab separator.vertical {
+  margin-top: 7px;
+  margin-bottom: 7px;
+}
+layouttab button:disabled,
+layouttab button {
+  background: none;
+  border: none;
+  box-shadow: none;
+}
+
+
+/*
+ * The following tweaks the layout panel headers
+ */
+layoutpane stackswitcher button {
+  min-width: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  padding: 0 3px 0 3px;
+  border-radius: 0;
+}
+
