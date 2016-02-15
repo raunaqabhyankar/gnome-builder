@@ -2,6 +2,15 @@
 
 
 /*
+ * Round buttons, similar to control-center.
+ */
+button.round-button {
+  border-radius: 20px;
+  -gtk-outline-radius: 20px;
+}
+
+
+/*
  * Titlebar adjustments for workbench
  *
  * This is needed due to our placement of headerbar inside of a
@@ -71,6 +80,9 @@ omnisearchdisplay omnisearchgroup omnisearchrow:selected {
  * preferences perspective, including groups, rows,
  * sidebar, etc.
  */
+workbench preferences stacksidebar list {
+  border-right: 1px solid alpha(@borders, 0.4);
+}
 workbench preferences preferencesgroup list row {
   padding: 10px;
   border-bottom: 1px solid alpha(@borders, 0.2);
@@ -210,7 +222,7 @@ layoutpane .pane-separator {
 popover list row {
   padding: 6px;
 }
-popover list row button {
+popover list row button:not(.round-button) {
   background: transparent;
   border: none;
   box-shadow: none;
@@ -218,11 +230,11 @@ popover list row button {
   padding: 0;
   opacity: 0.25;
 }
-popover list row:selected button,
-popover list row:selected button:hover {
+popover list row:selected button:not(.round-button),
+popover list row:selected button:not(.round-button):hover {
   color: @theme_selected_fg_color;
 }
-popover list row button:hover {
+popover list row button:not(.round-button):hover {
   opacity: 1;
 }
 

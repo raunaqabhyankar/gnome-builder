@@ -27,6 +27,7 @@
 #include "ide-buffer-manager.h"
 #include "ide-buffer.h"
 #include "ide-build-system.h"
+#include "ide-configuration-manager.h"
 #include "ide-context.h"
 #include "ide-debug.h"
 #include "ide-device-manager.h"
@@ -35,6 +36,7 @@
 #include "ide-project.h"
 #include "ide-project-item.h"
 #include "ide-project-files.h"
+#include "ide-runtime-manager.h"
 #include "ide-script-manager.h"
 #include "ide-search-engine.h"
 #include "ide-search-provider.h"
@@ -57,9 +59,11 @@ struct _IdeContext
   IdeBackForwardList       *back_forward_list;
   IdeBufferManager         *buffer_manager;
   IdeBuildSystem           *build_system;
+  IdeConfigurationManager  *configuration_manager;
   IdeDeviceManager         *device_manager;
   IdeDoap                  *doap;
   GtkRecentManager         *recent_manager;
+  IdeRuntimeManager        *runtime_manager;
   IdeScriptManager         *script_manager;
   IdeSearchEngine          *search_engine;
   IdeSourceSnippetsManager *snippets_manager;
@@ -91,10 +95,12 @@ enum {
   PROP_BACK_FORWARD_LIST,
   PROP_BUFFER_MANAGER,
   PROP_BUILD_SYSTEM,
+  PROP_CONFIGURATION_MANAGER,
   PROP_DEVICE_MANAGER,
   PROP_PROJECT_FILE,
   PROP_PROJECT,
   PROP_ROOT_BUILD_DIR,
+  PROP_RUNTIME_MANAGER,
   PROP_SCRIPT_MANAGER,
   PROP_SEARCH_ENGINE,
   PROP_SNIPPETS_MANAGER,
@@ -531,11 +537,13 @@ ide_context_finalize (GObject *object)
   g_clear_pointer (&self->recent_projects_path, g_free);
 
   g_clear_object (&self->build_system);
+  g_clear_object (&self->configuration_manager);
   g_clear_object (&self->device_manager);
   g_clear_object (&self->doap);
   g_clear_object (&self->project);
   g_clear_object (&self->project_file);
   g_clear_object (&self->recent_manager);
+  g_clear_object (&self->runtime_manager);
   g_clear_object (&self->unsaved_files);
   g_clear_object (&self->vcs);
 
@@ -570,6 +578,10 @@ ide_context_get_property (GObject    *object,
       g_value_set_object (value, ide_context_get_build_system (self));
       break;
 
+    case PROP_CONFIGURATION_MANAGER:
+      g_value_set_object (value, ide_context_get_configuration_manager (self));
+      break;
+
     case PROP_DEVICE_MANAGER:
       g_value_set_object (value, ide_context_get_device_manager (self));
       break;
@@ -584,6 +596,10 @@ ide_context_get_property (GObject    *object,
 
     case PROP_ROOT_BUILD_DIR:
       g_value_set_string (value, ide_context_get_root_build_dir (self));
+      break;
+
+    case PROP_RUNTIME_MANAGER:
+      g_value_set_object (value, ide_context_get_runtime_manager (self));
       break;
 
     case PROP_SCRIPT_MANAGER:
@@ -665,6 +681,13 @@ ide_context_class_init (IdeContextClass *klass)
                          IDE_TYPE_BUILD_SYSTEM,
                          (G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 
+  properties [PROP_CONFIGURATION_MANAGER] =
+    g_param_spec_object ("configuration-manager",
+                         "Configuration Manager",
+                         "The configuration manager for the context",
+                         IDE_TYPE_CONFIGURATION_MANAGER,
+                         (G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+
   properties [PROP_DEVICE_MANAGER] =
     g_param_spec_object ("device-manager",
                          "Device Manager",
@@ -694,6 +717,13 @@ ide_context_class_init (IdeContextClass *klass)
                          "The root directory to perform builds within.",
                          NULL,
                          (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+
+  properties [PROP_RUNTIME_MANAGER] =
+    g_param_spec_object ("runtime-manager",
+                         "Runtime Manager",
+                         "Runtime Manager",
+                         IDE_TYPE_RUNTIME_MANAGER,
+                         (G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 
   properties [PROP_SCRIPT_MANAGER] =
     g_param_spec_object ("script-manager",
@@ -782,9 +812,17 @@ ide_context_init (IdeContext *self)
                                        "context", self,
                                        NULL);
 
+  self->configuration_manager = g_object_new (IDE_TYPE_CONFIGURATION_MANAGER,
+                                              "context", self,
+                                              NULL);
+
   self->project = g_object_new (IDE_TYPE_PROJECT,
                                 "context", self,
                                 NULL);
+
+  self->runtime_manager = g_object_new (IDE_TYPE_RUNTIME_MANAGER,
+                                        "context", self,
+                                        NULL);
 
   self->unsaved_files = g_object_new (IDE_TYPE_UNSAVED_FILES,
                                       "context", self,
@@ -1338,6 +1376,44 @@ ide_context_init_search_engine (gpointer             source_object,
 }
 
 static void
+ide_context_init_configuration_manager_cb (GObject      *object,
+                                           GAsyncResult *result,
+                                           gpointer      user_data)
+{
+  GAsyncInitable *initable = (GAsyncInitable *)object;
+  g_autoptr(GTask) task = user_data;
+  GError *error = NULL;
+
+  g_assert (G_IS_ASYNC_INITABLE (initable));
+  g_assert (G_IS_ASYNC_RESULT (result));
+
+  if (!g_async_initable_init_finish (initable, result, &error))
+    g_task_return_error (task, error);
+  else
+    g_task_return_boolean (task, TRUE);
+}
+
+static void
+ide_context_init_configuration_manager (gpointer             source_object,
+                                        GCancellable        *cancellable,
+                                        GAsyncReadyCallback  callback,
+                                        gpointer             user_data)
+{
+  IdeContext *self = source_object;
+  g_autoptr(GTask) task = NULL;
+
+  g_assert (IDE_IS_CONTEXT (self));
+  g_assert (!cancellable || G_IS_CANCELLABLE (cancellable));
+
+  task = g_task_new (self, cancellable, callback, user_data);
+  g_async_initable_init_async (G_ASYNC_INITABLE (self->configuration_manager),
+                               G_PRIORITY_DEFAULT,
+                               cancellable,
+                               ide_context_init_configuration_manager_cb,
+                               g_object_ref (task));
+}
+
+static void
 ide_context_init_loaded (gpointer             source_object,
                          GCancellable        *cancellable,
                          GAsyncReadyCallback  callback,
@@ -1381,6 +1457,7 @@ ide_context_init_async (GAsyncInitable      *initable,
                         ide_context_init_unsaved_files,
                         ide_context_init_add_recent,
                         ide_context_init_search_engine,
+                        ide_context_init_configuration_manager,
                         ide_context_init_loaded,
                         NULL);
 }
@@ -1496,6 +1573,50 @@ ide_context_unload_buffer_manager (gpointer             source_object,
       if (count == 0)
         g_task_return_boolean (task, TRUE);
     }
+
+  IDE_EXIT;
+}
+
+static void
+ide_context_unload__configuration_manager_save_cb (GObject      *object,
+                                                   GAsyncResult *result,
+                                                   gpointer      user_data)
+{
+  IdeConfigurationManager *manager = (IdeConfigurationManager *)object;
+  g_autoptr(GTask) task = user_data;
+  g_autoptr(GError) error = NULL;
+
+  g_assert (IDE_IS_CONFIGURATION_MANAGER (manager));
+  g_assert (G_IS_TASK (task));
+
+  /* unfortunate if this happens, but not much we can do */
+  if (!ide_configuration_manager_save_finish (manager, result, &error))
+    g_warning ("%s", error->message);
+
+  g_task_return_boolean (task, TRUE);
+}
+
+static void
+ide_context_unload_configuration_manager (gpointer             source_object,
+                                          GCancellable        *cancellable,
+                                          GAsyncReadyCallback  callback,
+                                          gpointer             user_data)
+{
+  IdeContext *self = source_object;
+  g_autoptr(GTask) task = NULL;
+
+  IDE_ENTRY;
+
+  g_assert (IDE_IS_CONTEXT (self));
+  g_assert (!cancellable || G_IS_CANCELLABLE (cancellable));
+  g_assert (IDE_IS_CONFIGURATION_MANAGER (self->configuration_manager));
+
+  task = g_task_new (self, cancellable, callback, user_data);
+
+  ide_configuration_manager_save_async (self->configuration_manager,
+                                        cancellable,
+                                        ide_context_unload__configuration_manager_save_cb,
+                                        g_object_ref (task));
 
   IDE_EXIT;
 }
@@ -1618,10 +1739,14 @@ ide_context_do_unload_locked (IdeContext *self)
   task = self->delayed_unload_task;
   self->delayed_unload_task = NULL;
 
+  g_clear_object (&self->device_manager);
+  g_clear_object (&self->runtime_manager);
+
   ide_async_helper_run (self,
                         g_task_get_cancellable (task),
                         ide_context_unload_cb,
                         g_object_ref (task),
+                        ide_context_unload_configuration_manager,
                         ide_context_unload_back_forward_list,
                         ide_context_unload_buffer_manager,
                         ide_context_unload_unsaved_files,
@@ -1914,4 +2039,64 @@ ide_context_release (IdeContext *self)
   g_mutex_unlock (&self->unload_mutex);
 
   g_object_unref (self);
+}
+
+/**
+ * ide_context_get_runtime_manager:
+ * @self: An #IdeContext
+ *
+ * Gets the #IdeRuntimeManager for the LibIDE context.
+ *
+ * The runtime manager provies access to #IdeRuntime instances via the
+ * #GListModel interface. These can provide support for building projects
+ * in various runtimes such as xdg-app.
+ *
+ * Returns: (transfer none): An #IdeRuntimeManager.
+ */
+IdeRuntimeManager *
+ide_context_get_runtime_manager (IdeContext *self)
+{
+  g_return_val_if_fail (IDE_IS_CONTEXT (self), NULL);
+
+  return self->runtime_manager;
+}
+
+/**
+ * ide_context_get_configuration_manager:
+ * @self: An #IdeContext
+ *
+ * Gets the #IdeConfigurationManager for the context.
+ *
+ * The configuration manager is responsible for loading and saving
+ * configurations. Configurations consist of information about how to
+ * perform a particular build. Such information includes the target
+ * #IdeDevice, the #IdeRuntime to use, and various other build options.
+ *
+ * Returns: (transfer none): An #IdeConfigurationManager.
+ */
+IdeConfigurationManager *
+ide_context_get_configuration_manager (IdeContext *self)
+{
+  g_return_val_if_fail (IDE_IS_CONTEXT (self), NULL);
+
+  return self->configuration_manager;
+}
+
+void
+ide_context_warning (IdeContext  *self,
+                     const gchar *format,
+                     ...)
+{
+  va_list args;
+
+  g_return_if_fail (IDE_IS_CONTEXT (self));
+  g_return_if_fail (format != NULL);
+
+  va_start (args, format);
+  /*
+   * TODO: Track logging information so that we can display warnings
+   *       to the user in the workbench.
+   */
+  g_logv ("Ide", G_LOG_LEVEL_WARNING, format, args);
+  va_end (args);
 }

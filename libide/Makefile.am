@@ -61,6 +61,10 @@ libide_1_0_la_public_sources = \
 	ide-completion-provider.h \
 	ide-completion-results.c \
 	ide-completion-results.h \
+	ide-configuration.c \
+	ide-configuration.h \
+	ide-configuration-manager.c \
+	ide-configuration-manager.h \
 	ide-context.c \
 	ide-context.h \
 	ide-debugger.c \
@@ -83,6 +87,14 @@ libide_1_0_la_public_sources = \
 	ide-diagnostics.h \
 	ide-enums.c \
 	ide-enums.h \
+	ide-environment.c \
+	ide-environment.h \
+	ide-environment-editor.c \
+	ide-environment-editor.h \
+	ide-environment-editor-row.c \
+	ide-environment-editor-row.h \
+	ide-environment-variable.c \
+	ide-environment-variable.h \
 	ide-executable.c \
 	ide-executable.h \
 	ide-executer.c \
@@ -150,6 +162,12 @@ libide_1_0_la_public_sources = \
 	ide-project.h \
 	ide-recent-projects.c \
 	ide-recent-projects.h \
+	ide-runtime.c \
+	ide-runtime.h \
+	ide-runtime-manager.c \
+	ide-runtime-manager.h \
+	ide-runtime-provider.c \
+	ide-runtime-provider.h \
 	ide-refactory.c \
 	ide-refactory.h \
 	ide-script-manager.c \
@@ -188,6 +206,8 @@ libide_1_0_la_public_sources = \
 	ide-source-view-mode.h \
 	ide-source-view.c \
 	ide-source-view.h \
+	ide-subprocess-launcher.c \
+	ide-subprocess-launcher.h \
 	ide-symbol-resolver.c \
 	ide-symbol-resolver.h \
 	ide-symbol.c \
@@ -393,6 +413,8 @@ libide_1_0_la_SOURCES = \
 	util/ide-list-inline.h \
 	util/ide-pango.c \
 	util/ide-pango.h \
+	util/ide-posix.c \
+	util/ide-posix.h \
 	util/ide-rgba.c \
 	util/ide-rgba.h \
 	util/ide-text-util.c \
@@ -539,6 +561,7 @@ INTROSPECTION_GIRS =
 INTROSPECTION_SCANNER_ARGS = --add-include-path=$(srcdir) --warn-all
 INTROSPECTION_COMPILER_ARGS = \
 	--includedir=$(srcdir) \
+	--includedir=$(top_builddir)/contrib/egg \
 	--includedir=$(top_builddir)/contrib/tmpl
 
 introspection_sources = \
@@ -554,6 +577,7 @@ Ide_1_0_gir_LIBS = \
 	$(top_builddir)/contrib/tmpl/libtemplate-glib-1.0.la
 Ide_1_0_gir_FILES = $(introspection_sources)
 Ide_1_0_gir_SCANNERFLAGS = \
+	--include-uninstalled=$(top_builddir)/contrib/egg/Egg-1.0.gir \
 	--include-uninstalled=$(top_builddir)/contrib/tmpl/Template-1.0.gir \
 	--c-include="ide.h" \
 	-n Ide \
@@ -577,11 +601,21 @@ libide-1.0.vapi: Ide-1.0.gir
 
 VAPIGEN_VAPIS = libide-1.0.vapi
 
-libide_1_0_vapi_DEPS = gio-2.0 gtk+-3.0 gtksourceview-3.0 libpeas-1.0 template-glib-1.0
+libide_1_0_vapi_DEPS = \
+	gio-2.0 \
+	gtk+-3.0 \
+	gtksourceview-3.0 \
+	libpeas-1.0 \
+	template-glib-1.0 \
+	egg-private
 libide_1_0_vapi_METADATADIRS = $(srcdir)
 libide_1_0_vapi_FILES = Ide-1.0.gir
-libide_1_0_vapi_VAPIDIRS = $(top_builddir)/contrib/tmpl
-libide_1_0_vapi_GIRDIRS = $(top_builddir)/contrib/tmpl
+libide_1_0_vapi_VAPIDIRS = \
+	$(top_builddir)/contrib/egg \
+	$(top_builddir)/contrib/tmpl
+libide_1_0_vapi_GIRDIRS = \
+	$(top_builddir)/contrib/egg \
+	$(top_builddir)/contrib/tmpl
 
 libide-1.0.deps: Makefile
 	$(AM_V_GEN) echo $(libide_1_0_vapi_DEPS) | tr ' ' '\n' > $@
