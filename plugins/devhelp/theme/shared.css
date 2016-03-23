@@ -1,4 +1,9 @@
-devhelppanel entry {
+@binding-set devhelp-adjust-search-entry {
+  unbind "Escape";
+}
+
+devhelppanel entry.search {
   border-radius: 0;
   border-width: 0 0 1px 0;
+  -gtk-key-bindings: devhelp-adjust-search-entry;
 }
