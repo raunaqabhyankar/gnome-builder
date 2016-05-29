@@ -40,6 +40,14 @@ struct _GbpCreateProjectWidget
   guint                 auto_update : 1;
 };
 
+struct raunaq
+{
+  GTask                  *task;
+  GHashTable             *params;
+  IdeProjectTemplate     *template;
+  GbpCreateProjectWidget *self;
+};
+
 enum {
   PROP_0,
   PROP_IS_READY,
@@ -593,14 +601,54 @@ failure:
 }
 
 void
+gbp_create_project_widget_on_response (GtkDialog     *dialog,
+                                       gint           response,
+                                       gpointer  user_data)
+{
+  struct raunaq *r;
+  r = g_new0 (struct raunaq, 1);
+  r = user_data;
+
+  if (response == GTK_RESPONSE_OK)
+    {
+      ide_project_template_expand_async (r->template,
+                                         r->params,
+                                         NULL,
+                                         extract_cb,
+                                         g_object_ref (r->task));
+
+      gtk_widget_destroy (dialog);
+    }
+  else
+    {
+      gtk_widget_grab_focus (r->self->project_location_entry);
+      goto failure;
+    }
+
+
+  return;
+
+failure:
+  g_task_return_new_error (r->task,
+                           G_IO_ERROR,
+                           G_IO_ERROR_EXISTS,
+                           _("The directory exists and could not be replaced"));
+  gtk_widget_destroy (dialog);
+}
+
+void
 gbp_create_project_widget_create_async (GbpCreateProjectWidget *self,
                                         GCancellable           *cancellable,
                                         GAsyncReadyCallback     callback,
                                         gpointer                user_data)
 {
-  g_autoptr(GTask) task = NULL;
-  g_autoptr(GHashTable) params = NULL;
-  g_autoptr(IdeProjectTemplate) template = NULL;
+  struct raunaq *r;
+  r = g_new0 (struct raunaq, 1);
+  r->task = NULL;
+  r->params = NULL;
+  r->template = NULL;
+  r->self = self;
+
   g_autofree gchar *name = NULL;
   g_autofree gchar *location = NULL;
   g_autofree gchar *path = NULL;
@@ -619,18 +667,18 @@ gbp_create_project_widget_create_async (GbpCreateProjectWidget *self,
   template_container = selected_box_child->data;
   template_icon = GBP_CREATE_PROJECT_TEMPLATE_ICON (gtk_bin_get_child (GTK_BIN (template_container)));
   g_object_get (template_icon,
-                "template", &template,
+                "template", &r->template,
                 NULL);
   g_list_free (selected_box_child);
 
-  params = g_hash_table_new_full (g_str_hash,
+  r->params = g_hash_table_new_full (g_str_hash,
                                   g_str_equal,
                                   g_free,
                                   (GDestroyNotify)g_variant_unref);
 
   text = gtk_entry_get_text (self->project_name_entry);
   name = g_strstrip (g_strdup (text));
-  g_hash_table_insert (params,
+  g_hash_table_insert (r->params,
                        g_strdup ("name"),
                        g_variant_ref_sink (g_variant_new_string (g_strdelimit (name, " ", '-'))));
 
@@ -642,12 +690,12 @@ gbp_create_project_widget_create_async (GbpCreateProjectWidget *self,
   else
     path = g_steal_pointer (&location);
 
-  g_hash_table_insert (params,
+  g_hash_table_insert (r->params,
                        g_strdup ("path"),
                        g_variant_ref_sink (g_variant_new_string (path)));
 
   language = gtk_combo_box_text_get_active_text (self->project_language_chooser);
-  g_hash_table_insert (params,
+  g_hash_table_insert (r->params,
                        g_strdup ("language"),
                        g_variant_ref_sink (g_variant_new_string (language)));
 
@@ -661,23 +709,54 @@ gbp_create_project_widget_create_async (GbpCreateProjectWidget *self,
       license_full_path = g_strjoin (NULL, "resource://", "/org/gnome/builder/plugins/create-project-plugin/license/full/", license_id, NULL);
       license_short_path = g_strjoin (NULL, "resource://", "/org/gnome/builder/plugins/create-project-plugin/license/short/", license_id, NULL);
 
-      g_hash_table_insert (params,
+      g_hash_table_insert (r->params,
                            g_strdup ("license_full"),
                            g_variant_ref_sink (g_variant_new_string (license_full_path)));
 
-      g_hash_table_insert (params,
+      g_hash_table_insert (r->params,
                            g_strdup ("license_short"),
                            g_variant_ref_sink (g_variant_new_string (license_short_path)));
     }
 
-  task = g_task_new (self, cancellable, callback, user_data);
-  g_task_set_task_data (task, g_file_new_for_path (path), g_object_unref);
+  r->task = g_task_new (self, cancellable, callback, user_data);
+  g_task_set_task_data (r->task, g_file_new_for_path (path), g_object_unref);
 
-  ide_project_template_expand_async (template,
-                                     params,
-                                     NULL,
-                                     extract_cb,
-                                     g_object_ref (task));
+  if (g_file_test (path, G_FILE_TEST_IS_DIR))
+    {
+      GtkWidget *dialog;
+      GtkWidget *window;
+
+      name = g_path_get_basename (path);
+
+      dialog = gtk_message_dialog_new (GTK_WINDOW (window),
+                                       GTK_DIALOG_MODAL,
+                                       GTK_MESSAGE_QUESTION,
+                                       GTK_BUTTONS_NONE,
+                                       _("The directory “%s” already exists. Would you like to overwrite it?"),
+                                       name);
+
+      gtk_dialog_add_buttons (GTK_DIALOG (dialog),
+                              _("Cancel"), GTK_RESPONSE_CANCEL,
+                              _("Overwrite directory"), GTK_RESPONSE_OK,
+                              NULL);
+
+      gtk_window_set_transient_for (GTK_WINDOW (dialog), gtk_widget_get_toplevel (self));
+
+      gtk_window_present (dialog);
+
+      g_signal_connect (GTK_DIALOG (dialog),
+                        "response",
+                        G_CALLBACK (gbp_create_project_widget_on_response),
+                        r);
+    }
+  else
+    {
+      ide_project_template_expand_async (r->template,
+                                         r->params,
+                                         NULL,
+                                         extract_cb,
+                                         g_object_ref (r->task));
+    }
 }
 
 gboolean
